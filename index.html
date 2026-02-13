@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Plant Logic Jump - Sprite Edition</title>
+<style>
+  html, body { margin: 0; padding: 0; overflow: hidden; background: #0a0a0a; font-family: 'Tahoma', sans-serif; }
+  canvas { display: block; background: #111; }
+
+  #ui-layer {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    display: none; flex-direction: column; align-items: center; justify-content: center;
+    background: rgba(0, 0, 0, 0.85); color: white; z-index: 10; backdrop-filter: blur(4px);
+  }
+  .score-info { font-size: 128px; margin: 60px; }
+  .best-info { font-size: 48px; color: #ffd700; margin-bottom: 30px; }
+  .restart-btn {
+    width: 300px; height: 300px; border-radius: 50%; background: #2ecc71;
+    border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 20px rgba(46, 204, 113, 0.6); animation: pulse 2s infinite;
+  }
+  .restart-btn svg { fill: white; width: 150px; height: 150px; margin-left: 5px; }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.7); }
+    70% { box-shadow: 0 0 0 20px rgba(46, 204, 113, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(46, 204, 113, 0); }
+  }
+  @keyframes tap-anim {
+    0%, 100% { transform: scale(1); opacity: 0.4; }
+    50% { transform: scale(1.2); opacity: 0.9; }
+  }
+</style>
+</head>
+<body>
+
+<div id="ui-layer">
+  <h1 style="font-size: 48px; color: #e74c3c;">پایان بازی</h1>
+  <div id="final-score" class="score-info">امتیاز: ۰</div>
+<div id="best-score" class="best-info">بهترین رکورد: ۰</div> 
+ <div id="edu-info" style="color: #ecf0f1; background: rgba(255,255,255,0.1);font-size: 36px; padding: 36px; border-radius: 32px; margin: 48px; max-width: 70%; line-height: 1.6; text-align: center;"></div>
+  
+  <button class="restart-btn" onclick="restartGame()">
+    <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+  </button>
+  <p style="margin-top: 25px; font-weight: bold; color: #2ecc71;">شروع دوباره</p>
+</div>
+
+<div id="start-guide" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; justify-content: space-around; align-items: center; z-index: 5; pointer-events: none; background: rgba(0,0,0,0.3);">
+  <div style="text-align:center; animation: tap-anim 1.5s infinite;">
+    <span style="font-size: 50px;">👆</span>
+    <p style="color:white; font-family: Tahoma;">پرش به چپ</p>
+  </div>
+  <div style="text-align:center; animation: tap-anim 1.5s infinite 0.75s;">
+    <span style="font-size: 50px;">👆</span>
+    <p style="color:white; font-family: Tahoma;">پرش به راست</p>
+  </div>
+</div>
+
+<canvas id="game"></canvas>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+const uiLayer = document.getElementById("ui-layer");
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+const gravity = 1;
+const jumpForce = -18;
+const minGateDistance = 1800; 
+const maxGateDistance = 2200;
+
+let player, gates, obstacles, fallingObjects, lastGateY, score, highScore, shake, flashAlpha, currentGroundY;
+let stormTimer = 1000; 
+let stormDuration = 0; 
+let gameState = 'playing';
+let activeLaser = null;
+
+// --- بخش تنظیمات اسپرایت کاراکتر ---
+const playerSprite = new Image();
+playerSprite.src = 'cards/player_sprite.png'; // نام فایل اسپرایت شما
+let spriteFrame = 0;
+let gameFrame = 0;
+const staggerFrames = 5; // سرعت تعویض فریم (عدد بیشتر = انیمیشن کندتر)
+const spriteWidth = 64;  // عرض هر تک فریم در اسپرایت‌شیت شما
+const spriteHeight = 64; // ارتفاع هر تک فریم در اسپرایت‌شیت شما
+// ----------------------------------
+
+highScore = localStorage.getItem("plantJumpBest") || 0;
+
+const quizData = [
+  { trait: "دانه لوبیا", correct: ["دو لپه ای"], wrongs: ["یک لپه ای"], images: {"دو لپه ای": "lube_2.png", "یک لپه ای": "lube_1.png"}, desc: ".دانه لوبیا دو لپه ای است" },
+  { trait: "ریشه گندم", correct: ["افشان"], wrongs: ["راست"], images: {"افشان": "afshan.png", "راست": "rast.png"}, desc: ".ریشه گندم افشان است" },
+  { trait: "ریشه ی مشابه ریشه ذرت", correct: ["برنج","گندم"], wrongs: ["نخود","آفتاب گردان"], images: {"برنج": "b1.png", "گندم": "g1.png", "نخود": "n1.png", "آفتاب گردان": "a1.png"}, desc: " گیاهانی مانند ذرت،برنج و گندم ریشه ی افشان دارند " },
+  { trait: "دانه دو لپه", correct: ["لوبیا", "نخود", "عدس"], wrongs: ["گندم", "جو", "ذرت"], images: {"لوبیا": "l1.png", "نخود": "n1.png", "عدس": "a2.png", "گندم": "g1.png", "جو": "j1.png", "ذرت": "z1.png"}, desc: "گیاهانی مانند لوبیا،نخود و عدس دانه دو لپه دارند" },
+  { trait: "ریشه افشان", correct: ["برنج", "گندم", "ذرت"], wrongs: ["نخود", "پیاز", "هویج"], images: {"برنج": "b1.png", "گندم": "g1.png", "ذرت": "z1.png", "نخود": "n1.png", "پیاز": "p1.png", "هویج": "h1.png"}, desc: "در ریشه افشان، ریشه اصلی پس از مدتی از بین می‌رود و ریشه‌های نابجا جای آن را می‌گیرند." },
+  { trait: "گلبرگ ۳ تایی", correct: ["زنبق", "لاله"], wrongs: ["رز", "نسترن", "گل سرخ"], images: {"زنبق": "zanbagh.png", "لاله": "lale.png", "رز": "rose.png", "نسترن": "nastaran.png", "گل سرخ": "sorkh.png"}, desc: "گیاهان تک لپه معمولاً دارای گلبرگ‌هایی با مضرب ۳ هستند." },
+  { trait: "ساقه غده‌ای", correct: ["سیب‌زمینی"], wrongs: ["هویج", "تربچه", "سیر"], images: {"سیب‌زمینی": "potato.png", "هویج": "carrot.png", "تربچه": "torob.png", "سیر": "sir.png"}, desc: "سیب‌زمینی یک ساقه تغییر شکل یافته زیرزمینی است." },
+  { trait: "آوند ندارند", correct: ["خزه‌ها"], wrongs: ["سرخس‌ها", "کاج‌ها", "چنار"], images: {"خزه‌ها": "khaze.png", "سرخس‌ها": "sarkhas.png", "کاج‌ها": "kaj.png", "چنار": "chenar.png"}, desc: "خزه‌ها گیاهان بدون آوند هستند که در محیط‌های مرطوب زندگی می‌کنند." }
+];
+
+const imageAssets = {};
+function preloadImages() {
+  const allPaths = [...new Set(quizData.flatMap(q => Object.values(q.images)))];
+  allPaths.forEach(path => {
+    const img = new Image();
+    img.src = "cards/" + path;
+    imageAssets[path] = img;
+  });
+}
+preloadImages();
+
+function createGate(y) {
+  const quiz = quizData[Math.floor(Math.random() * quizData.length)];
+  let chance3 = Math.min(score * 5, 40); 
+  let chance4 = Math.min(score * 0.6, 30); 
+  const rand = Math.random() * 100;
+  let numOptions = (rand < chance4) ? 4 : (rand < (chance4 + chance3) ? 3 : 2);
+  let numCorrectsNeeded = (numOptions >= 3 && quiz.correct.length >= 2 && Math.random() > 0.5) ? 2 : 1;
+  let selectedCorrects = [...quiz.correct].sort(() => 0.5 - Math.random()).slice(0, numCorrectsNeeded);
+  let selectedWrongs = [...quiz.wrongs].sort(() => 0.5 - Math.random()).slice(0, numOptions - selectedCorrects.length);
+  let options = [...selectedCorrects, ...selectedWrongs].sort(() => 0.5 - Math.random());
+  let vx = 0;
+  if (score >= 3) {
+    let moveChance = Math.min((score - 3) * 10, 70); 
+    if (Math.random() * 100 < moveChance) vx = (1.5 + Math.random() * 2.5) * (Math.random() > 0.5 ? 1 : -1);
+  }
+  return { y, x: 0, vx, h: 60, quiz, options, scored: false };
+}
+
+function spawnObstaclesBetween(startY, endY) {
+  const sectionHeight = 450; 
+  const numSections = Math.floor(Math.abs(endY - startY) / sectionHeight);
+  for (let i = 0; i < numSections; i++) {
+    if (Math.random() > 0.4) {
+      const rowY = startY + (i * sectionHeight) + 150;
+      const isMoving = Math.random() > 0.5;
+      const oWidth = 140 + Math.random() * 120;
+      const oHeight = 60 + Math.random() * 30;
+      obstacles.push({
+        x: Math.random() * (canvas.width - oWidth),
+        y: rowY, w: oWidth, h: oHeight,
+        vx: isMoving ? (1.5 + Math.random() * 2.5) * (Math.random() > 0.5 ? 1 : -1) : 0,
+        color: isMoving ? "#e74c3c" : "#7f8c8d"
+      });
+    }
+  }
+}
+
+function manageFallingStorm() {
+  if (score < 1 || !player.alive) return; // شرط شروع (مثلاً بعد از ۵ امتیاز)
+
+  // 1. مدیریت زمان‌بندی
+  // اگر در حال بارش هستیم
+  if (stormDuration > 0) {
+    stormDuration--;
+    // تولید سنگ (تراکم بالا برای ۲ ثانیه)
+    if (Math.random() < 0.1) { // شانس بارش زیاد (۲۵٪ در هر فریم)
+      fallingObjects.push({
+        x: 40 + Math.random() * (canvas.width - 80), // فقط وسط صفحه
+        y: player.y - canvas.height, // از بالا می‌افتد
+        radius: 20 + Math.random() * 10, // سنگ‌های بزرگ
+        vy: 10, 
+        color: "#f1c40f"
+      });
+    }
+  } 
+  // اگر بارش نیست، تایمر را کم کن
+  else {
+    stormTimer--;
+    
+    // وقتی تایمر به 0 رسید، یعنی هشدار ۳ ثانیه‌ای تمام شده -> شروع طوفان
+    if (stormTimer <= 0) {
+        stormDuration = 120; // مدت بارش: ۲ ثانیه (120 فریم)
+        stormTimer = 1500;   // تنظیم زمان برای طوفان بعدی (مثلاً ۲۵ ثانیه بعد)
+    }
+  }
+
+  // 2. نمایش هشدار (فقط در ۳ ثانیه آخرِ تایمر)
+  // 180 فریم = 3 ثانیه
+  if (stormTimer > 0 && stormTimer <= 180) {
+    ctx.save();
+    
+    // الف) وینیت قرمز (Red Vignette)
+    // یک گرادیانت که وسطش شفاف و دورش قرمز است
+    const gradient = ctx.createRadialGradient(
+        canvas.width / 2, canvas.height / 2, canvas.height / 3, // دایره داخلی
+        canvas.width / 2, canvas.height / 2, canvas.height      // دایره بیرونی
+    );
+    gradient.addColorStop(0, "rgba(255, 0, 0, 0)"); // وسط شفاف
+    gradient.addColorStop(1, "rgba(200, 0, 0, 0.6)"); // دور قرمز تیره
+    
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // ب) نوار سیاه هشدار (وسط صفحه)
+    const barHeight = 100;
+    const centerY = canvas.height / 2 - barHeight / 2;
+    
+    ctx.fillStyle = "rgba(0, 0, 0, 0.85)"; // نوار سیاه پررنگ
+    ctx.fillRect(0, centerY, canvas.width, barHeight);
+    
+    // ج) خطوط قرمز بالا و پایین نوار
+    ctx.fillStyle = "#e74c3c";
+    ctx.fillRect(0, centerY, canvas.width, 5);
+    ctx.fillRect(0, centerY + barHeight - 5, canvas.width, 5);
+
+    // د) متن بزرگ هشدار
+    ctx.font = "bold 40px Tahoma";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    
+    // متن چشمک‌زن (سفید و زرد)
+    const pulse = Math.floor(Date.now() / 100) % 2;
+    ctx.fillStyle = pulse ? "#ffff00" : "#ffffff";
+    
+    // نمایش ثانیه شمار معکوس (3... 2... 1...)
+    const secondsLeft = Math.ceil(stormTimer / 60);
+    ctx.fillText(`⚠️ خطر ریزش سنگ (${secondsLeft}) ⚠️`, canvas.width / 2, canvas.height / 2);
+
+    ctx.restore();
+  }
+}function addNewGate() {
+  const prevGateY = lastGateY;
+  const gap = minGateDistance + Math.random() * (maxGateDistance - minGateDistance);
+  const nextY = lastGateY - gap;
+  gates.push(createGate(nextY));
+  spawnObstaclesBetween(nextY + 350, prevGateY - 350);
+  lastGateY = nextY;
+}
+
+function reset() {
+  score = 0; shake = 0; flashAlpha = 0; activeLaser = null;
+  stormTimer = 1000; stormDuration = 0;
+  currentGroundY = canvas.height - 300;
+  player = { x: canvas.width / 2, y: currentGroundY - 35, radius: 60, vx: 0, vy: 0, alive: true, onGround: true,facing: 1 };
+  gates = []; obstacles = []; fallingObjects = [];
+  lastGateY = -150;
+  gates.push(createGate(lastGateY));
+  addNewGate();
+}
+
+function triggerGameOver() {
+  if (gameState === 'gameover') return;
+  gameState = 'gameover';
+  shake = 15; flashAlpha = 0.5; player.alive = false;
+  if (score > highScore) {
+    highScore = score;
+    localStorage.setItem("plantJumpBest", highScore);
+  }
+  let lastGate = gates.find(g => g.y < player.y + 200) || gates[0];
+  setTimeout(() => {
+    document.getElementById("final-score").innerText = "امتیاز: " + score;
+    document.getElementById("best-score").innerText = "بهترین رکورد: " + highScore;
+    document.getElementById("edu-info").innerText = "دانستنی علمی: " + lastGate.quiz.desc;
+    uiLayer.style.display = "flex";
+  }, 500);
+}
+
+function restartGame() {
+  uiLayer.style.display = "none";
+  gameState = 'playing';
+  reset();
+}
+
+const handleInput = (inputX) => {
+  const guide = document.getElementById("start-guide");
+  if (guide) guide.remove();
+  if(gameState !== 'playing' || !player.alive) return;
+  player.vy = jumpForce;
+  player.vx = inputX < canvas.width / 2 ? -8 : 8;
+  player.onGround = false;
+};
+canvas.addEventListener("touchstart", e => handleInput(e.touches[0].clientX));
+window.addEventListener("mousedown", e => handleInput(e.clientX));
+
+function gameLoop() {
+  ctx.save();
+const wallWidth = 30; 
+  const blockSize = 84;
+  if (shake > 0) {
+    ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+    shake *= 0.9;
+  }
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // ------------------------------------
+
+  // ------------------------------------
+  
+
+  if (player.alive) {
+    player.vy += gravity;
+    player.y += player.vy;
+    player.x += player.vx;
+    player.vx *= 0.98;
+
+    if (player.vy > 0 && currentGroundY < canvas.height + 50 && player.y + player.radius > currentGroundY) {
+      player.y = currentGroundY - player.radius;
+      player.vy = 0; player.onGround = true;
+    }
+
+    if (player.y < canvas.height * 0.55) {
+      let diff = (canvas.height * 0.55 - player.y) * 0.2;
+      player.y += diff; currentGroundY += diff; lastGateY += diff;      
+      gates.forEach(g => g.y += diff);
+      obstacles.forEach(o => o.y += diff);
+      fallingObjects.forEach(f => f.y += diff);
+      if(activeLaser) activeLaser.y += diff;
+    }
+
+    if (gates.length > 0 && gates[0].y > canvas.height + 300) {
+      gates.shift();
+      addNewGate();
+    }
+  
+  }
+
+  obstacles.forEach((obs, index) => {
+    if (obs.vx !== 0) {
+      obs.x += obs.vx;
+      if (obs.x + obs.w > canvas.width - wallWidth || obs.x < wallWidth) obs.vx *= -1;
+    }
+    ctx.fillStyle = obs.color;
+    ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
+    if (player.alive && player.x + 20 > obs.x && player.x - 20 < obs.x + obs.w && player.y + 20 > obs.y && player.y - 20 < obs.y + obs.h) triggerGameOver();
+    if (obs.y > canvas.height + 400) obstacles.splice(index, 1);
+  });
+
+  
+
+ctx.save(); // ذخیره وضعیت کلی برای ایجاد محدوده برش
+  ctx.beginPath();
+  // محدوده برش: از لبه دیوار چپ تا لبه دیوار راست
+  ctx.rect(wallWidth, 0, canvas.width - (wallWidth * 2), canvas.height);
+  ctx.clip(); // از اینجا به بعد هر چه رسم شود فقط در این مستطیل دیده می‌شود
+
+  gates.forEach(gate => {
+    const sideMargin = 56; // فاصله از بغل صفحه (حاشیه)
+    // عرض مفید بازی (کل صفحه منهای دو حاشیه چپ و راست)
+    const playWidth = canvas.width - (sideMargin * 2);
+
+    // حرکت افقی گیت‌ها بر اساس عرض مفید
+    if (gate.vx !== 0) {
+      gate.x += gate.vx;
+      // نکته مهم: رپینگ باید بر اساس playWidth باشد نه canvas.width
+      if (gate.x > playWidth) gate.x -= playWidth;
+      if (gate.x < -playWidth) gate.x += playWidth;
+    }
+   
+    const n = gate.options.length;
+    const w = playWidth / n; // عرض هر سلول بر اساس فضای مفید
+    const pillarH = 80; 
+
+    // رسم در سه موقعیت برای ایجاد حالت بی‌نهایت
+    // آفست‌ها بر اساس playWidth محاسبه می‌شوند
+    [gate.x, gate.x + playWidth, gate.x - playWidth].forEach(off => {
+      
+      // *** تغییر کلیدی برای رفع دو ستونه شدن ***
+      // حلقه باید i < n باشد (نه i <= n). 
+      // دیوار آخرِ این قطعه توسط دیوار اولِ قطعه‌ی بعدی تامین می‌شود.
+     // --- حلقه رسم ستون‌های پیشرفته ---
+        for (let i = 0; i < n; i++) {
+            const pillarW = 50; 
+            const pillarX = off + sideMargin + (i * w) - pillarW / 2;
+            
+            // فقط اگر در دید است رسم کن
+            if (pillarX > -100 && pillarX < canvas.width + 100) {
+                
+                // 1. بدنه اصلی ستون (تیره‌تر برای عمق)
+                ctx.fillStyle = "#34495e"; 
+                ctx.shadowBlur = 0;
+                ctx.fillRect(pillarX, gate.y, pillarW, pillarH);
+
+                // 2. سرستون (Cap) - کمی پهن‌تر از ستون
+                ctx.fillStyle = "#2c3e50"; // رنگ متفاوت
+                ctx.fillRect(pillarX - 5, gate.y, pillarW + 10, 15);
+
+                // 3. پاستون (Base) - کمی پهن‌تر در پایین
+                ctx.fillRect(pillarX - 5, gate.y + pillarH - 15, pillarW + 10, 15);
+
+                // 4. جزئیات داخلی (خطوط عمودی برای حس فلزی/سنگی)
+                ctx.fillStyle = "rgba(0,0,0,0.2)";
+                ctx.fillRect(pillarX + 10, gate.y + 15, 5, pillarH - 30);
+                ctx.fillRect(pillarX + pillarW - 15, gate.y + 15, 5, pillarH - 30);
+
+                // 5. نازل لیزر (Emitter)
+                // اگر این ستون، ستونی است که لیزر باید از سمت راستش بیرون بیاید
+                // یا ستونی است که لیزر باید به سمت چپش برخورد کند
+                // یک برجستگی کوچک قرمز یا زرد روی بدنه بکشیم
+                ctx.fillStyle = "#c0392b";
+                // سمت راست ستون (برای شروع لیزر بعدی)
+                ctx.fillRect(pillarX + pillarW, gate.y + pillarH/2 - 5, 4, 10);
+                // سمت چپ ستون (برای پایان لیزر قبلی)
+                ctx.fillRect(pillarX - 4, gate.y + pillarH/2 - 5, 4, 10);
+
+
+ctx.save();
+            
+            // 1. تنظیمات ابعاد
+            const beamBaseX = pillarX + pillarW / 2; 
+            const beamBaseY = gate.y; 
+            const beamH = pillarH * 5; // ارتفاع بلند
+            const beamW = pillarW * 0.8; // عرض ثابت
+
+            // 2. تنظیمات نور (بدون انیمیشن)
+            // حالت ترکیبی برای درخشش روی پس‌زمینه تیره
+            ctx.globalCompositeOperation = "screen"; 
+
+            // 3. گرادیانت نور (از پایین پررنگ تا بالا محو)
+            const gradient = ctx.createLinearGradient(beamBaseX, beamBaseY, beamBaseX, beamBaseY - beamH);
+            
+            // پایین: سفید/آبی روشن (منبع نور) - ثابت
+            gradient.addColorStop(0, "rgba(200, 255, 255, 0.6)");
+            // وسط: فیروزه‌ای نئونی - ثابت
+            gradient.addColorStop(0.3, "rgba(0, 243, 255, 0.4)");
+            // بالا: محو کامل
+            gradient.addColorStop(1, "rgba(0, 243, 255, 0)");
+
+            ctx.fillStyle = gradient;
+            
+            // 4. درخشش بیرونی ثابت (Glow)
+            ctx.shadowColor = "cyan";
+            ctx.shadowBlur = 15; // درخشش ملایم و ثابت
+
+            // 5. رسم پرتو نور (مستطیل ذوزنقه‌ای شکل)
+            ctx.beginPath();
+            ctx.moveTo(beamBaseX - beamW / 2, beamBaseY); // پایین چپ
+            ctx.lineTo(beamBaseX - (beamW * 0.8) / 2, beamBaseY - beamH); // بالا چپ (کمی جمع‌تر)
+            ctx.lineTo(beamBaseX + (beamW * 0.8) / 2, beamBaseY - beamH); // بالا راست
+            ctx.lineTo(beamBaseX + beamW / 2, beamBaseY); // پایین راست
+            ctx.fill();
+
+
+            ctx.restore();             // منطق برخورد (همان کد قبلی بدون تغییر)
+                if (player.alive && 
+                    player.x + 55 > pillarX && player.x - 55 < pillarX + pillarW &&
+                    player.y + 55 > gate.y && player.y - 55 < gate.y + pillarH) {
+                    
+                    let overlapLeft = (player.x + 55) - pillarX;
+                    let overlapRight = (pillarX + pillarW) - (player.x - 55);
+                    let overlapTop = (player.y + 55) - gate.y;
+                    let overlapBottom = (gate.y + pillarH) - (player.y - 55);
+                    let minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
+
+                    if (minOverlap === overlapTop && player.vy > 0) {
+                        player.y = gate.y - 55; player.vy = 0; player.onGround = true;
+                    } 
+                    else if (minOverlap === overlapBottom && player.vy < 0) {
+                        player.y = gate.y + pillarH + 55; player.vy *= -0.5;
+                    } 
+                    else if (minOverlap === overlapLeft) {
+                        player.x = pillarX - 55; player.vx = 0;
+                    } 
+                    else if (minOverlap === overlapRight) {
+                        player.x = pillarX + pillarW + 55; player.vx = 0;
+                    }
+                }
+            }
+        }
+
+        
+      // تنظیم موقعیت کارت‌ها
+     gate.options.forEach((txt, i) => {
+        const cardW = w * 0.82;
+        const cardH = cardW;
+        
+             const hoverDistance = 40;
+             const cardY = gate.y - cardH + hoverDistance;
+
+        // محاسبه مرکز هر بخش برای قرارگیری کارت
+        // متغیر off شامل سه حالت (gate.x و gate.x + playWidth و gate.x - playWidth) است
+        const cardX = off + sideMargin + (i * w) + (w - cardW) / 2;
+        const centerX = cardX + cardW / 2;
+        
+        const imgPath = gate.quiz.images[txt];
+        const imgObj = imageAssets[imgPath];
+        
+        // چک کردن لود شدن تصویر
+        if (imgObj && imgObj.complete && imgObj.naturalWidth !== 0) {
+          // رسم تصویر در هر سه آفست (چپ، وسط، راست)
+          ctx.drawImage(imgObj, cardX, cardY, cardW, cardH);
+        } else {
+          // اگر هنوز لود نشده، یک کادر سفید با متن نشان بده تا پرش تصویری نداشته باشیم
+          ctx.fillStyle = "white"; 
+          ctx.fillRect(cardX, cardY, cardW, cardH);
+          ctx.fillStyle = "black"; 
+          ctx.font = "bold 14px Tahoma"; 
+          ctx.textAlign = "center";
+          ctx.fillText(txt, cardX + cardW/2, cardY + cardH/2);
+        }
+      });
+    });
+
+    // اصلاح منطق لیزر (با در نظر گرفتن حاشیه و رپینگ)
+    if (player.alive && player.y > gate.y && player.y < gate.y + pillarH) {
+      // نرمال‌سازی موقعیت بازیکن نسبت به فضای بازی (بدون حاشیه)
+      let relativePlayerX = player.x - sideMargin; 
+      
+      // محاسبه موقعیت نسبی در سیستم چرخشی
+      let relX = (relativePlayerX - gate.x) % playWidth;
+      if (relX < 0) relX += playWidth;
+
+      // اگر بازیکن داخل حاشیه‌ها رفته باشد (خارج از بازی)، نباید بسوزد (یا با دیوار برخورد کرده)
+      if (player.x > sideMargin && player.x < canvas.width - sideMargin) {
+          let optIdx = Math.floor(relX / w);
+          let innerX = relX % w;
+          let laserMargin = 15; 
+          
+          if (innerX > laserMargin && innerX < w - laserMargin) {
+            let selectedOption = gate.options[optIdx];
+            if (selectedOption && !gate.quiz.correct.includes(selectedOption)) {
+              
+              // پیدا کردن بهترین X برای رسم لیزر که نزدیک بازیکن باشد
+              let bestLaserXStart = 0;
+              let minDistance = 99999;
+              
+              [gate.x, gate.x + playWidth, gate.x - playWidth].forEach(off => {
+                  let laserStartX = off + sideMargin + (optIdx * w) + laserMargin;
+                  let dist = Math.abs(player.x - (laserStartX + (w/2)));
+                  if(dist < minDistance) {
+                      minDistance = dist;
+                      bestLaserXStart = laserStartX;
+                  }
+              });
+
+              activeLaser = { 
+                x1: bestLaserXStart, 
+                x2: bestLaserXStart + w - (laserMargin * 2), 
+                y: gate.y + (pillarH / 2), 
+                life: 10 
+              };
+              triggerGameOver();
+            }
+          }
+      }
+    }
+    if (player.alive && player.y < gate.y && !gate.scored) { score++; gate.scored = true; }
+  });
+
+fallingObjects.forEach((f, index) => {
+    f.vy += 0.1; f.y += f.vy;
+    ctx.beginPath(); ctx.arc(f.x, f.y, f.radius, 0, Math.PI * 2);
+    ctx.fillStyle = f.color; ctx.fill();
+
+    let hitSomething = false;
+    obstacles.forEach(obs => {
+      if (f.x + f.radius > obs.x && f.x - f.radius < obs.x + obs.w && f.y + f.radius > obs.y && f.y - f.radius < obs.y + obs.h) hitSomething = true;
+    });
+
+
+
+    gates.forEach(gate => {
+      const n = gate.options.length;
+      const w = canvas.width / n;
+      [gate.x, gate.x + canvas.width, gate.x - canvas.width].forEach(off => {
+        for (let i = 0; i <= n; i++) {
+          const pillarW = 50; 
+          const pillarX = off + (i * w) - pillarW / 2;
+          const pillarH = 80;
+          if (f.x + f.radius > pillarX && f.x - f.radius < pillarX + pillarW && 
+              f.y + f.radius > gate.y && f.y - f.radius < gate.y + pillarH) {
+            hitSomething = true;
+          }
+        }
+      });
+    });
+
+    if (hitSomething) { 
+      fallingObjects.splice(index, 1); 
+      return; 
+    }
+
+    const dx = player.x - f.x, dy = player.y - f.y;
+    if (player.alive && Math.sqrt(dx*dx + dy*dy) < player.radius + f.radius) triggerGameOver();
+    if (f.y > canvas.height + 500) fallingObjects.splice(index, 1);
+  });
+  manageFallingStorm();
+ctx.restore();
+
+  if (activeLaser && activeLaser.life > 0) {
+    ctx.save();
+    ctx.strokeStyle = "red"; ctx.lineWidth = 8;
+    ctx.shadowBlur = 20; ctx.shadowColor = "red";
+    ctx.beginPath();
+    ctx.moveTo(activeLaser.x1, activeLaser.y);
+    ctx.lineTo(activeLaser.x2, activeLaser.y);
+    ctx.stroke();
+    ctx.strokeStyle = "white"; ctx.lineWidth = 2; ctx.stroke();
+    ctx.restore();
+    activeLaser.life--;
+  }
+
+  ctx.fillStyle = "#1a1a1a";
+  ctx.fillRect(0, 0, canvas.width, 100);
+  
+  // بررسی برخورد با بلوک‌های دیواری و سقوط
+// اصلاح شرط باخت برای برخورد با دیواره‌های جدید
+ // اصلاح شرط باخت برای برخورد با دیواره‌های جدید
+  if (player.alive) {
+    // برخورد با بلوک‌های چپ و راست
+    if (player.x - player.radius < wallWidth || player.x + player.radius > canvas.width - wallWidth) {
+        triggerGameOver();
+    }
+    // شرط خروج از بالا یا پایین (کد قبلی شما)
+    if (player.x < 0 || player.x > canvas.width || (player.y - 25 > canvas.height && !player.onGround)) {
+        triggerGameOver();
+    }
+  }
+  // --- بخش جدید: رسم اسپرایت به جای دایره ---
+  // --- رسم اسپرایت واکنشی (بدون انیمیشن خودکار) ---
+ // --- رسم اسپرایت واکنشی ---
+  if (player.alive) {
+    ctx.save();
+    
+    // انتخاب فریم: اگر روی زمین نیست فریم ۱، وگرنه فریم ۰
+    let currentFrame = player.onGround ? 0 : 1; 
+
+    // انتقال به موقعیت بازیکن
+    ctx.translate(player.x, player.y);
+
+    // --- تغییر مهم: آپدیت کردن جهت فقط اگر سرعت زیاد است ---
+    // اگر سرعت خیلی کم یا صفر است، دست به facing نزن تا جهت قبلی حفظ شود
+    if (Math.abs(player.vx) > 0.5) {
+      player.facing = Math.sign(player.vx);
+    }
+    
+    // اعمال جهت (1 برای راست، -1 برای چپ)
+    ctx.scale(player.facing, 1);
+    // ----------------------------------------------------
+
+    ctx.drawImage(
+      playerSprite, 
+      currentFrame * spriteWidth, 0, spriteWidth, spriteHeight, 
+      -player.radius, -player.radius, player.radius * 2, player.radius * 2 
+    );
+
+    ctx.restore();
+  }
+  // -----------------------------------------
+
+// --- ۱. تنظیمات دیوار بلوکی متحرک ---
+   
+  // ایجاد حرکت بر اساس موقعیت عمودی گیت‌ها برای حس واقعی جابجایی
+  let scrollOffset = (gates.length > 0) ? (gates[0].y % blockSize) : 0;
+
+  ctx.save();
+  for (let y = -blockSize; y < canvas.height + blockSize; y += blockSize) {
+      let drawY = y + scrollOffset;
+
+      // طراحی بلوک سمت چپ
+      ctx.fillStyle = "#34495e"; 
+      ctx.fillRect(0, drawY, wallWidth, blockSize - 4);
+      
+      // لبه نوری (لیزر مرگبار)
+      ctx.fillStyle = "#e74c3c";
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = "#e74c3c";
+      ctx.fillRect(wallWidth - 6, drawY + 5, 4, blockSize - 14);
+
+      // طراحی بلوک سمت راست
+      ctx.fillStyle = "#34495e";
+      ctx.shadowBlur = 0; // ریست سایه برای بدنه بلوک
+      ctx.fillRect(canvas.width - wallWidth, drawY, wallWidth, blockSize - 4);
+      
+      // لبه نوری راست
+      ctx.fillStyle = "#e74c3c";
+      ctx.shadowBlur = 15;
+      ctx.fillRect(canvas.width - wallWidth + 2, drawY + 5, 4, blockSize - 14);
+      ctx.shadowBlur = 0;
+  }
+  ctx.restore();
+
+
+
+  if (flashAlpha > 0) {
+    ctx.fillStyle = `rgba(255, 0, 0, ${flashAlpha})`;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    flashAlpha *= 0.9;
+  }
+
+if (currentGroundY < canvas.height + 100) {
+    ctx.fillStyle = "#333";
+    // کمی عریض‌تر می‌کشیم تا مطمئن شویم روی لبه دیوارها را می‌پوشاند
+    ctx.fillRect(-10, currentGroundY, canvas.width + 20, canvas.height);
+  }
+
+  // ۲. رسم نوار مشکی بالای صفحه (پس‌زمینه سوال و امتیاز)
+  ctx.fillStyle = "#1a1a1a";
+  // این نوار هم باید روی دیوارها بیاید
+  ctx.fillRect(0, 0, canvas.width, 180);
+
+  // ۳. رسم متن سوال (روی نوار مشکی)
+  let activeGate = gates.find(g => g.y < player.y);
+  if (activeGate && activeGate.y > -50) {
+    ctx.save();
+    ctx.fillStyle = "cyan"; ctx.font = "bold 68px Tahoma"; ctx.textAlign = "center";
+    ctx.globalAlpha = Math.min(1, (activeGate.y + 50) / 100); 
+    ctx.fillText(activeGate.quiz.trait, canvas.width / 2, 110);
+    ctx.restore();
+  }
+
+  // ۴. رسم امتیازات (روی نوار مشکی)
+  ctx.fillStyle = "#ffd700"; ctx.font = "32px Arial"; ctx.textAlign = "left";
+  ctx.fillText("SCORE: " + score, 25, 40);
+  ctx.fillText("BEST: " + (highScore || 0), 25, 80);
+
+  ctx.restore();
+  requestAnimationFrame(gameLoop);
+}
+
+reset();
+gameLoop();
+</script>
+</body>
+</html>
