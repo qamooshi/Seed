@@ -149,14 +149,14 @@ function spawnObstaclesBetween(startY, endY) {
 }
 
 function manageFallingStorm() {
-  if (score < 1 || !player.alive) return; // شرط شروع (مثلاً بعد از ۵ امتیاز)
+  if (score < 10 || !player.alive) return; // شرط شروع (مثلاً بعد از ۵ امتیاز)
 
   // 1. مدیریت زمان‌بندی
   // اگر در حال بارش هستیم
   if (stormDuration > 0) {
     stormDuration--;
     // تولید سنگ (تراکم بالا برای ۲ ثانیه)
-    if (Math.random() < 0.1) { // شانس بارش زیاد (۲۵٪ در هر فریم)
+    if (Math.random() < 0.08) { // شانس بارش زیاد (۲۵٪ در هر فریم)
       fallingObjects.push({
         x: 40 + Math.random() * (canvas.width - 80), // فقط وسط صفحه
         y: player.y - canvas.height, // از بالا می‌افتد
@@ -172,7 +172,7 @@ function manageFallingStorm() {
     
     // وقتی تایمر به 0 رسید، یعنی هشدار ۳ ثانیه‌ای تمام شده -> شروع طوفان
     if (stormTimer <= 0) {
-        stormDuration = 120; // مدت بارش: ۲ ثانیه (120 فریم)
+        stormDuration = 90; // مدت بارش: ۲ ثانیه (120 فریم)
         stormTimer = 1500;   // تنظیم زمان برای طوفان بعدی (مثلاً ۲۵ ثانیه بعد)
     }
   }
