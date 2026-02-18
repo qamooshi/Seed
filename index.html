@@ -4,7 +4,13 @@
 <meta charset="UTF-8">
 <title>Plant Logic Jump - Sprite Edition</title>
 <style>
-  html, body { margin: 0; padding: 0; overflow: hidden; background: #0a0a0a; font-family: 'Tahoma', sans-serif; }
+ @font-face {
+    font-family: 'IRZeytoon'; /* یک اسم دلخواه برای فونت */
+    src: url('fonts/IRZeytoon.ttf') format('truetype'); /* آدرس دقیق فایل */
+    font-weight: normal;
+    font-style: normal;
+}
+ html, body { margin: 0; padding: 0; overflow: hidden; background: #0a0a0a; font-family: 'IRZeytoon', sans-serif; }
   canvas { display: block; background: #111; }
 
   #ui-layer {
@@ -62,22 +68,39 @@
     </button>
     
 </div>
-<div id="start-guide" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; justify-content: space-around; align-items: flex-end; padding-bottom: 300px; z-index: 5; pointer-events: none; background: rgba(0,0,0,0.3); box-sizing: border-box;">
+<div id="start-guide" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; padding-bottom: 300px; z-index: 5; pointer-events: none; background: rgba(0,0,0,0.3); box-sizing: border-box;">
   
-  <div style="text-align:center; animation: tap-anim 1.5s infinite;">
-    <img src="cards/hand_left.png" style="width: 180px; height: 180px; display: block; margin: 0 auto -20px auto;">
-    <p style="color:white; font-family: Tahoma; font-size: 32px; text-shadow: 0 0 5px black;">پرش به چپ</p>
+  <div style="color: #ffffff; font-family: IRZeytoon; font-size: 60px; font-weight: bold; margin-bottom: 200px; text-shadow: 0 0 10px cyan; animation: pulse 1.5s infinite;opacity: 0.8;">
+    ! از پاسخ درست عبور کن
   </div>
 
-  <div style="text-align:center; animation: tap-anim 1.5s infinite 0.75s;">
-    <img src="cards/hand_right.png" style="width: 180px; height: 180px; display: block; margin: 0 auto -20px auto;">
-    <p style="color:white; font-family: Tahoma; font-size: 32px; text-shadow: 0 0 5px black;">پرش به راست</p>
-  </div>
+  <div style="display: flex; justify-content: space-around; width: 100%;">
+    <div style="text-align:center; animation: tap-anim 1.5s infinite;">
+      <img src="cards/hand_left.png" style="width: 180px; height: 180px; display: block; margin: 0 auto -20px auto;">
+      <p style="color:white; font-family: IRZeytoon; font-size: 32px; text-shadow: 0 0 5px black;">پرش به چپ</p>
+    </div>
 
+    <div style="text-align:center; animation: tap-anim 1.5s infinite 0.75s;">
+      <img src="cards/hand_right.png" style="width: 180px; height: 180px; display: block; margin: 0 auto -20px auto;">
+      <p style="color:white; font-family: IRZeytoon; font-size: 32px; text-shadow: 0 0 5px black;">پرش به راست</p>
+    </div>
+  </div>
+</div>
 </div>
 <canvas id="game"></canvas>
 
 <script>
+
+// اطمینان از لود شدن فونت قبل از شروع بازی
+const font = new FontFace('GameFont', 'url(fonts/MyFont.ttf)');
+font.load().then(function(loadedFont) {
+    document.fonts.add(loadedFont);
+    console.log("فونت با موفقیت جایگزین شد");
+}).catch(function(error) {
+    console.log("خطا در لود فونت: " + error);
+});
+
+
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 const uiLayer = document.getElementById("ui-layer");
@@ -100,14 +123,17 @@ let totalDistance = 0;
 let quizPool = []; // کیسه‌ای که ایندکس سوالات را در آن نگه می‌داریم
 let lastQuizIndex = -1; // برای اطمینان مضاعف که آخرین سوال کیسه قبل با اولین سوال کیسه بعد یکی نشود
 
+
+
+
 // --- بخش تنظیمات اسپرایت کاراکتر ---
 const playerSprite = new Image();
 playerSprite.src = 'cards/player_sprite.png'; // نام فایل اسپرایت شما
 let spriteFrame = 0;
 let gameFrame = 0;
 const staggerFrames = 5; // سرعت تعویض فریم (عدد بیشتر = انیمیشن کندتر)
-const spriteWidth = 64;  // عرض هر تک فریم در اسپرایت‌شیت شما
-const spriteHeight = 64; // ارتفاع هر تک فریم در اسپرایت‌شیت شما
+const spriteWidth = 128;  // عرض هر تک فریم در اسپرایت‌شیت شما
+const spriteHeight = 128; // ارتفاع هر تک فریم در اسپرایت‌شیت شما
 // ----------------------------------
 
 highScore = localStorage.getItem("plantJumpBest") || 0;
@@ -302,7 +328,7 @@ function spawnObstaclesBetween(startY, endY) {
     ctx.fillRect(0, centerY + barHeight - 5, canvas.width, 5);
 
     // د) متن بزرگ هشدار
-    ctx.font = "bold 40px Tahoma";
+    ctx.font = "bold 40px IRZeytoon";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     
@@ -391,7 +417,7 @@ function reset() {
   totalDistance = 0;
 bgY = 0;
   currentGroundY = canvas.height - 250;
-  player = { x: canvas.width / 2, y: currentGroundY - 60, radius: 60, vx: 0, vy: 0, alive: true, onGround: true,facing: 1 };
+  player = { x: canvas.width / 2, y: currentGroundY - 60, radius: 60, vx: 0, vy: 0, alive: true, onGround: true,facing: 1,jumpTimer: 0};
   gates = []; obstacles = []; fallingObjects = [];
   lastGateY = -150;
 
@@ -452,6 +478,13 @@ const handleInput = (inputX) => {
   player.vx = inputX < canvas.width / 2 ? -8 : 8;
   player.onGround = false;
 playSound('jump', 0.2);
+
+player.vy = jumpForce;
+    player.vx = inputX < canvas.width / 2 ? -8 : 8;
+    player.onGround = false;
+    player.jumpTimer = 15; // <--- برای حدود ۱۰ فریم در حالت پرواز بماند
+    playSound(sounds.jump);
+
 };
 canvas.addEventListener("touchstart", e => handleInput(e.touches[0].clientX));
 window.addEventListener("mousedown", e => handleInput(e.clientX));
@@ -574,7 +607,7 @@ const wallWidth = 30;
     ctx.restore();
 
     // ۵. منطق برخورد و حذف
-    if (player.alive && player.x + 20 > obs.x && player.x - 20 < obs.x + obs.w && player.y + 20 > obs.y && player.y - 20 < obs.y + obs.h) triggerGameOver('hit');
+    if (player.alive && player.x + 40 > obs.x && player.x - 40 < obs.x + obs.w && player.y + 40 > obs.y && player.y - 40 < obs.y + obs.h) triggerGameOver('hit');
     if (obs.y > canvas.height + 400) obstacles.splice(index, 1);
 });
   
@@ -785,7 +818,7 @@ ctx.save();
           ctx.fillStyle = "white"; 
           ctx.fillRect(cardX, cardY, cardW, cardH);
           ctx.fillStyle = "black"; 
-          ctx.font = "bold 14px Tahoma"; 
+          ctx.font = "bold 14px IRZeytoon"; 
           ctx.textAlign = "center";
           ctx.fillText(txt, cardX + cardW/2, cardY + cardH/2);
         }
@@ -925,11 +958,37 @@ if (player.alive) {
     }
 }  // --- رسم اسپرایت واکنشی (بدون انیمیشن خودکار) ---
  // --- رسم اسپرایت واکنشی ---
-  if (player.alive) {
+   if (player.alive) {
     ctx.save();
     
-    // انتخاب فریم: اگر روی زمین نیست فریم ۱، وگرنه فریم ۰
-    let currentFrame = player.onGround ? 0 : 1; 
+    // منطق جدید انتخاب فریم:
+    // اگر تایمر پرش بیشتر از صفر است، شکل پرواز (1) را نشان بده
+    let currentFrame = (player.jumpTimer > 0) ? 1 : 0; 
+    
+    // کم کردن تایمر در هر فریم
+    if (player.jumpTimer > 0) player.jumpTimer--;
+
+    // انتقال به موقعیت بازیکن
+    ctx.translate(player.x, player.y);
+
+    // --- تغییر مهم: آپدیت کردن جهت فقط اگر سرعت زیاد است ---
+    // اگر سرعت خیلی کم یا صفر است، دست به facing نزن تا جهت قبلی حفظ شود
+    if (Math.abs(player.vx) > 0.5) {
+      player.facing = Math.sign(player.vx);
+    }
+    
+    // اعمال جهت (1 برای راست، -1 برای چپ)
+    ctx.scale(player.facing, 1);
+    // ----------------------------------------------------
+
+    ctx.drawImage(
+      playerSprite, 
+      currentFrame * spriteWidth, 0, spriteWidth, spriteHeight, 
+      -player.radius, -player.radius, player.radius * 2, player.radius * 2 
+    );
+
+    ctx.restore();
+
 
     // انتقال به موقعیت بازیکن
     ctx.translate(player.x, player.y);
@@ -1021,76 +1080,80 @@ if (currentGroundY < canvas.height + 100) {
   }
 
 // --- ریدیزاین نوار امتیاز (Top Score Bar) ---
-  ctx.save();
-  
-  // ۱. بدنه نوار (حالت شیشه‌ای و نیمه شفاف)
-  const barHeight = 180;
-  const barGradient = ctx.createLinearGradient(0, 0, 0, barHeight);
-  barGradient.addColorStop(0, "rgba(20, 20, 20, 0.9)"); // تیره در بالا
-  barGradient.addColorStop(1, "rgba(20, 20, 20, 0.5)"); // شفاف در پایین (حالت شیشه‌ای)
-  
-  ctx.fillStyle = barGradient;
-  ctx.fillRect(0, 0, canvas.width, barHeight);
+  // --- ریدیزاین نوار امتیاز و باکس سوال جداگانه ---
+ctx.save();
 
-  // ۲. خط نئونی زیر نوار
-  ctx.strokeStyle = "cyan";
-  ctx.lineWidth = 3;
-  ctx.shadowBlur = 15;
-  ctx.shadowColor = "cyan";
-  ctx.beginPath();
-  ctx.moveTo(0, barHeight);
-  ctx.lineTo(canvas.width, barHeight);
-  ctx.stroke();
-  ctx.shadowBlur = 0; // ریست سایه برای بقیه بخش‌ها
+// ۱. نوار امتیازات (فقط چپ و راست - بدون وسط)
+const barHeight = 150;
+const barGradient = ctx.createLinearGradient(0, 0, 0, barHeight);
+barGradient.addColorStop(0, "rgba(20, 20, 20, 0.9)");
+barGradient.addColorStop(1, "rgba(20, 20, 20, 0)"); // محو شدن در پایین
 
-  // ۳. استایل متن امتیاز (سمت چپ)
-  ctx.textAlign = "left";
-  ctx.textBaseline = "top";
-  
-  // کلمه SCORE (کوچک و شیک)
-  ctx.font = "bold 18px Tahoma";
-  ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
-  ctx.fillText("SCORE", 40, 35);
-  
-  // عدد امتیاز (بزرگ و نئونی)
-  ctx.font = "bold 100px Tahoma";
-  ctx.fillStyle = "#fff";
-  ctx.shadowBlur = 10;
-  ctx.shadowColor = "white";
-  ctx.fillText(score, 40, 60);
-  ctx.shadowBlur = 0;
+ctx.fillStyle = barGradient;
+ctx.fillRect(0, 0, canvas.width, barHeight);
 
-  // ۴. استایل بهترین رکورد (سمت راست)
-  ctx.textAlign = "right";
-  
-  ctx.font = "bold 18px Tahoma";
-  ctx.fillStyle = "rgba(255, 215, 0, 0.6)"; // طلایی شفاف
-  ctx.fillText("BEST RECORD", canvas.width - 40, 35);
-  
-  ctx.font = "bold 85px Tahoma";
-  ctx.fillStyle = "#ffd700"; // طلایی
-  ctx.fillText(highScore || 0, canvas.width - 40, 65);
+// ۲. استایل امتیاز (سمت چپ)
+ctx.textAlign = "center";
+ctx.textBaseline = "top";
+ctx.font = "24px IRZeytoon";
+ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+ctx.fillText("امتیاز", 100, 30);
 
-  // ۵. رسم متن سوال (وسط نوار با افکت محو شونده)
-  let activeGate = gates.find(g => g.y < player.y);
-  if (activeGate && activeGate.y > -50) {
+ctx.font = "bold 120px IRZeytoon";
+ctx.fillStyle = "#fff";
+ctx.shadowBlur = 5; ctx.shadowColor = "white";
+ctx.fillText(score, 100, 40);
+ctx.shadowBlur = 0;
+
+// ۳. استایل بهترین رکورد (سمت راست)
+ctx.textAlign = "center";
+ctx.textBaseline = "top";
+ctx.font = "24px IRZeytoon";
+ctx.fillStyle = "rgba(255, 215, 0, 0.6)";
+ctx.fillText("بهترین", canvas.width - 100, 30);
+
+ctx.font = "bold 80px IRZeytoon";
+ctx.fillStyle = "#ffd700";
+ctx.shadowBlur = 10; ctx.shadowColor = "#ffd700";
+ctx.fillText(highScore || 0, canvas.width - 100, 60);
+ctx.shadowBlur = 0;
+
+// ۴. باکس سوال جداگانه (شناور در مرکز)
+let activeGate = gates.find(g => g.y < player.y);
+if (activeGate && activeGate.y > -100) {
+    const quizText = activeGate.quiz.trait;
+    ctx.font = "bold 60px IRZeytoon";
+    const textWidth = ctx.measureText(quizText).width;
+    const boxW = textWidth + 80;
+    const boxH = 140;
+    const boxX = (canvas.width - boxW) / 2;
+    const boxY = 40;
+
     ctx.save();
+    // انیمیشن محو شدن وقتی به گیت نزدیک می‌شویم
+    ctx.globalAlpha = Math.min(1, (activeGate.y + 150) / 200);
+
+    // بدنه باکس سوال
+    ctx.fillStyle = "rgba(0, 40, 40, 0.8)";
+    ctx.strokeStyle = "cyan";
+    ctx.lineWidth = 3;
+    ctx.shadowBlur = 20; ctx.shadowColor = "cyan";
+    
+    // رسم باکس با گوشه‌های کمی گرد (مستطیل ساده برای سرعت)
+    ctx.fillRect(boxX, boxY, boxW, boxH);
+    ctx.strokeRect(boxX, boxY, boxW, boxH);
+
+    // متن سوال داخل باکس
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.font = "bold 80px Tahoma";
-    
-    // رنگ فیروزه‌ای براق برای سوال
     ctx.fillStyle = "#00ffff";
-    ctx.shadowBlur = 20;
-    ctx.shadowColor = "cyan";
+    ctx.shadowBlur = 2;
+    ctx.fillText(quizText, canvas.width / 2, boxY + boxH / 2 + 5);
     
-    // انیمیشن محو شدن متن وقتی گیت نزدیک است
-    ctx.globalAlpha = Math.min(1, (activeGate.y + 100) / 150);
-    ctx.fillText(activeGate.quiz.trait, canvas.width / 2, barHeight / 2 + 10);
     ctx.restore();
-  }
+}
 
-  ctx.restore();
+ctx.restore();
   ctx.restore();
   requestAnimationFrame(gameLoop);
 }
