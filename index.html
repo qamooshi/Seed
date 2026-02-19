@@ -56,33 +56,10 @@
     50% { transform: scale(1.2); opacity: 0.5; }
   }
 
-#loading-spinner {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    /* مرکز کردن دقیق المان */
-    transform: translate(-50%, -50%);
-    width: 60px;
-    height: 60px;
-    /* ایجاد یک حلقه نیمه‌شفاف */
-    border: 8px solid rgba(0, 255, 255, 0.1); 
-    /* رنگ بخش در حال چرخش */
-    border-top: 8px solid #00ffff; 
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    z-index: 9999; /* قرار گرفتن روی تمام لایه‌ها */
-}
-
-/* انیمیشن چرخش */
-@keyframes spin {
-    0% { transform: translate(-50%, -50%) rotate(0deg); }
-    100% { transform: translate(-50%, -50%) rotate(360deg); }
-}
-
 </style>
 </head>
 <body>
-<div id="loading-spinner"></div>
+
 <div id="ui-layer">
     
     <div id="final-score" class="score-info">۰</div>
@@ -1262,8 +1239,6 @@ console.log("در حال بارگذاری فایل‌های حیاتی...");
 preloadEssentials().then(() => {
     console.log("فایل‌های حیاتی لود شدند! شروع بازی...");
     
-const spinner = document.getElementById("loading-spinner");
-    if (spinner) spinner.style.display = "none";
 
     // شروع بازی
     reset();
