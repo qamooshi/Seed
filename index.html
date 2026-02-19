@@ -25,13 +25,13 @@
 
 
 .score-info { 
-    font-size: 280px; font-weight: bold; margin: 60px 0;
+    font-size: 320px; font-weight: bold; margin: 40px 0;
     color: #fff; text-shadow: 0 0 20px rgba(255, 255, 255, 0.4);
 }
 
 .best-info { 
     font-size: 42px; color: #ffd700; margin-bottom: 40px;
-    background: rgba(255, 215, 0, 0.1); padding: 10px 30px; border-radius: 50px;
+    background: rgba(255, 215, 0, 0.1); padding: 20px 50px; border-radius: 50px;
     border: 1px solid rgba(255, 215, 0, 0.3);
 }
 
@@ -96,7 +96,7 @@
 </div>
 <div id="start-guide" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; flex-direction: column; justify-content: flex-end; align-items: center; padding-bottom: 300px; z-index: 5; pointer-events: none; background: rgba(0,0,0,0.3); box-sizing: border-box;">
   
-  <div style="color: #ffffff; font-family: IRZeytoon; font-size: 60px; font-weight: bold; margin-bottom: 200px; text-shadow: 0 0 10px cyan; animation: pulse 1.5s infinite;opacity: 0.8;">
+  <div style="color: cyan; font-family: IRZeytoon; font-size: 60px; font-weight: bold; margin-bottom: 200px; text-shadow: 0 0 0px cyan; animation: pulse 1.5s infinite;opacity: 0.7;">
     ! از پاسخ درست عبور کن
   </div>
 
@@ -165,10 +165,10 @@ const spriteHeight = 128; // ارتفاع هر تک فریم در اسپرایت
 highScore = localStorage.getItem("plantJumpBest") || 0;
 
 const colorPalette = [
-  { h: 180, s: 60, l: 40 }, // ۱. آبی آسمانی (شروع - حس تازگی)
-  { h: 130, s: 40, l: 30 }, // ۲. سبز جنگلی (لایه دوم)
+  { h: 200, s: 90, l: 40 }, // ۱. آبی آسمانی (شروع - حس تازگی)
+  { h: 130, s: 70, l: 30 }, // ۲. سبز جنگلی (لایه دوم)
   { h: 30,  s: 50, l: 30 }, // ۳. قهوه‌ای خاکی (لایه سوم - اعماق گیاه)
-  { h: 280, s: 50, l: 30 }, // ۴. بنفش مرموز (لایه چهارم)
+  { h: 280, s: 70, l: 30 }, // ۴. بنفش مرموز (لایه چهارم)
   { h: 10,  s: 70, l: 20 }  // ۵. قرمز تیره (نهایت خطر و سختی)
 ];
 
@@ -552,14 +552,14 @@ const wallWidth = 30;
     let lit = colorPalette[index].l + (colorPalette[nextIndex].l - colorPalette[index].l) * factor;
 
     // اعمال رنگ با حالت Overlay برای ملموس بودن
-    ctx.globalCompositeOperation = "overlay";
-    ctx.fillStyle = `hsl(${hue}, ${sat}%, ${lit}%)`;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
-    // لایه تاریک‌کننده برای حفظ کنتراست بازی
-    ctx.globalCompositeOperation = "multiply";
-    ctx.fillStyle = "rgba(0, 0, 0, 0.65)";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+   // اعمال رنگ تغییر فصل‌ها با استفاده از شفافیت ساده (بسیار سبک و روان برای موبایل)
+     // از hsla استفاده کردیم تا مقدار 0.5 (شفافیت ۵۰ درصدی) را به آن بدهیم
+     ctx.fillStyle = `hsla(${hue}, ${sat}%, ${lit}%, 0.5)`;
+     ctx.fillRect(0, 0, canvas.width, canvas.height);
+     
+     // لایه تاریک‌کننده ساده بدون محاسبات سنگینِ Multiply
+     ctx.fillStyle = "rgba(0, 0, 0, 0.7)"; 
+     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
     ctx.restore();
 
@@ -614,8 +614,8 @@ const wallWidth = 30;
     ctx.fillStyle = dangerColor;
 
    if (obs.vx !== 0) {
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = "red";
+        //ctx.shadowBlur = 15;
+        //ctx.shadowColor = "red";
     } else {
         ctx.shadowBlur = 0; // مانع ثابت اصلاً نمی‌درخشد
     }
@@ -775,8 +775,8 @@ ctx.save();
             ctx.fillStyle = gradient;
             
             // 4. درخشش بیرونی (Glow) با رنگ متغیر
-            ctx.shadowColor = glowColor;
-            ctx.shadowBlur = 15;
+            //ctx.shadowColor = glowColor;
+            //ctx.shadowBlur = 15;
 
             // 5. رسم پرتو نور (مستطیل ذوزنقه‌ای شکل)
             ctx.beginPath();
@@ -937,7 +937,8 @@ ctx.restore();
   if (activeLaser && activeLaser.life > 0) {
     ctx.save();
     ctx.strokeStyle = "red"; ctx.lineWidth = 8;
-    ctx.shadowBlur = 20; ctx.shadowColor = "red";
+    //ctx.shadowBlur = 20;
+// ctx.shadowColor = "red";
     ctx.beginPath();
     ctx.moveTo(activeLaser.x1, activeLaser.y);
     ctx.lineTo(activeLaser.x2, activeLaser.y);
@@ -1066,7 +1067,8 @@ for (let y = -bSize; y < canvas.height + bSize; y += bSize) {
         ctx.fillStyle = "#1a1a1a"; // کشنده
         ctx.fillRect(0, drawY, wallWidth, bSize - 4);
         ctx.fillStyle = "#ff3333";
-        ctx.shadowBlur = 15; ctx.shadowColor = "red";
+        //ctx.shadowBlur = 15;
+// ctx.shadowColor = "red";
         ctx.fillRect(wallWidth - 6, drawY + 5, 4, bSize - 14);
         ctx.shadowBlur = 0;
     }
@@ -1081,7 +1083,8 @@ for (let y = -bSize; y < canvas.height + bSize; y += bSize) {
         ctx.fillStyle = "#1a1a1a";
         ctx.fillRect(canvas.width - wallWidth, drawY, wallWidth, bSize - 4);
         ctx.fillStyle = "#ff3333";
-        ctx.shadowBlur = 15; ctx.shadowColor = "red";
+        //ctx.shadowBlur = 15;
+// ctx.shadowColor = "red";
         ctx.fillRect(canvas.width - wallWidth + 2, drawY + 5, 4, bSize - 14);
         ctx.shadowBlur = 0;
     }
@@ -1123,7 +1126,8 @@ ctx.fillText("امتیاز", 100, 50);
 
 ctx.font = "bold 120px IRZeytoon";
 ctx.fillStyle = "#fff";
-ctx.shadowBlur = 5; ctx.shadowColor = "white";
+//ctx.shadowBlur = 5;
+//ctx.shadowColor = "white";
 ctx.fillText(score, 100, 130);
 ctx.shadowBlur = 0;
 
@@ -1136,7 +1140,8 @@ ctx.fillText("بهترین", canvas.width - 100, 50);
 
 ctx.font = "bold 80px IRZeytoon";
 ctx.fillStyle = "#ffd700";
-ctx.shadowBlur = 9; ctx.shadowColor = "#ffd700";
+//ctx.shadowBlur = 9;
+//ctx.shadowColor = "#ffd700";
 ctx.fillText(highScore || 0, canvas.width - 100, 110);
 ctx.shadowBlur = 0;
 
@@ -1159,7 +1164,8 @@ if (activeGate && activeGate.y > -100) {
     ctx.fillStyle = "rgba(0, 40, 40, 0.8)";
     ctx.strokeStyle = "cyan";
     ctx.lineWidth = 3;
-    ctx.shadowBlur = 20; ctx.shadowColor = "cyan";
+    //ctx.shadowBlur = 20;
+// ctx.shadowColor = "cyan";
     
     // رسم باکس با گوشه‌های کمی گرد (مستطیل ساده برای سرعت)
     ctx.fillRect(boxX, boxY, boxW, boxH);
@@ -1169,7 +1175,7 @@ if (activeGate && activeGate.y > -100) {
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillStyle = "#00ffff";
-    ctx.shadowBlur = 2;
+    //ctx.shadowBlur = 2;
     ctx.fillText(quizText, canvas.width / 2, boxY + boxH / 2 + 5);
     
     ctx.restore();
