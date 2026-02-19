@@ -10,8 +10,10 @@
     font-weight: normal;
     font-style: normal;
 }
- html, body { margin: 0; padding: 0; overflow: hidden; background: #0a0a0a; font-family: 'IRZeytoon', sans-serif; }
-  canvas { display: block; background: #111; }
+ html, body { margin: 0; padding: 0; overflow: hidden; background: #0a0a0a; font-family: 'IRZeytoon', sans-serif;touch-action: none; 
+    user-select: none; 
+    -webkit-user-select: none; /* پشتیبانی از مرورگر سافاری (آیفون) */ }
+  canvas { display: block; background: #111;touch-action: none; }
 
   #ui-layer {
     position: absolute; top: 0; left: 0; width: 100%; height: 100%;
@@ -53,10 +55,34 @@
     0%, 100% { transform: scale(1); opacity: 0.1; }
     50% { transform: scale(1.2); opacity: 0.5; }
   }
+
+#loading-spinner {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    /* مرکز کردن دقیق المان */
+    transform: translate(-50%, -50%);
+    width: 60px;
+    height: 60px;
+    /* ایجاد یک حلقه نیمه‌شفاف */
+    border: 8px solid rgba(0, 255, 255, 0.1); 
+    /* رنگ بخش در حال چرخش */
+    border-top: 8px solid #00ffff; 
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    z-index: 9999; /* قرار گرفتن روی تمام لایه‌ها */
+}
+
+/* انیمیشن چرخش */
+@keyframes spin {
+    0% { transform: translate(-50%, -50%) rotate(0deg); }
+    100% { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
 </style>
 </head>
 <body>
-
+<div id="loading-spinner"></div>
 <div id="ui-layer">
     
     <div id="final-score" class="score-info">۰</div>
@@ -182,16 +208,7 @@ const quizData = [
  "دانه آفتاب گردان": "aftabgardan.webp", "دانه لوبیا": "loobia.webp"}, desc: " گیاهانی مانند گندم،ذرت و برنج دانه یک قسمتی و برگ هایی دراز و باریک دارند." }
 ];
 
-const imageAssets = {};
-function preloadImages() {
-  const allPaths = [...new Set(quizData.flatMap(q => Object.values(q.images)))];
-  allPaths.forEach(path => {
-    const img = new Image();
-    img.src = "cards/" + path;
-    imageAssets[path] = img;
-  });
-}
-preloadImages();
+
 
 function createGate(y, quizInput) {
   // اگر سوال از addNewGate نیامده بود (برای اولین گیت)، تصادفی بگیر
@@ -471,24 +488,29 @@ playSound('click', 0.4);
 }
 
 const handleInput = (inputX) => {
-  const guide = document.getElementById("start-guide");
-  if (guide) guide.remove();
-  if(gameState !== 'playing' || !player.alive) return;
-  player.vy = jumpForce;
-  player.vx = inputX < canvas.width / 2 ? -8 : 8;
-  player.onGround = false;
-playSound('jump', 0.2);
+    const guide = document.getElementById("start-guide");
+    if (guide) guide.remove();
+    
+    // اگر بازی در جریان نیست یا بازیکن سوخته، هیچ کاری نکن
+    if (gameState !== 'playing' || !player.alive) return;
 
-player.vy = jumpForce;
+    // اعمال نیروی پرش و تعیین جهت (فقط یک بار!)
+    player.vy = jumpForce;
     player.vx = inputX < canvas.width / 2 ? -8 : 8;
     player.onGround = false;
-    player.jumpTimer = 15; // <--- برای حدود ۱۰ فریم در حالت پرواز بماند
-    playSound(sounds.jump);
-
+    player.jumpTimer = 15; // برای حدود ۱۰ فریم در حالت پرواز بماند
+    
+    // پخش صدای پرش با نام درست بافر
+    playSound('jump', 0.9); 
 };
-canvas.addEventListener("touchstart", e => handleInput(e.touches[0].clientX));
-window.addEventListener("mousedown", e => handleInput(e.clientX));
 
+// استفاده از pointerdown به جای touchstart و mousedown
+window.addEventListener("pointerdown", e => {
+    // برای جلوگیری از پرش هنگام کلیک روی دکمه ری‌استارت یا رابط کاربری
+    if (e.target === canvas) {
+        handleInput(e.clientX);
+    }
+});
 function gameLoop() {
   ctx.save();
 const wallWidth = 30; 
@@ -1158,8 +1180,99 @@ ctx.restore();
   requestAnimationFrame(gameLoop);
 }
 
-reset();
-gameLoop();
+
+// آبجکت ذخیره تصاویر سوالات و متغیر کنترل لودینگ تنبل
+const imageAssets = {};
+let isLazyLoadingStarted = false;
+
+// ۱. آماده‌سازی کیسه سوالات قبل از لودینگ
+if (quizPool.length === 0) {
+    quizPool = Array.from(Array(quizData.length).keys());
+    quizPool.sort(() => Math.random() - 0.5); // بر زدن تصادفی
+}
+
+// ۲. برداشتن ۳ سوال اول برای لود ضروری (تا بازی حتماً با آن‌ها شروع شود)
+const initialQuestionsCount = 3;
+// از انتهای کیسه ۳ تا برمی‌داریم تا با منطق pop() شما هماهنگ باشد
+const initialQuizIndices = quizPool.slice(-initialQuestionsCount);
+
+// --- تابع کمکی برای ساخت پرامیسِ لود عکس ---
+function loadImagePromise(src, pathKey = null) {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve({ img, pathKey });
+        img.onerror = () => resolve({ img: null, pathKey }); // در صورت خطا هم رد شود تا بازی گیر نکند
+        img.src = src;
+    }).then(result => {
+        if (result.pathKey && result.img) {
+            imageAssets[result.pathKey] = result.img;
+        }
+    });
+}
+
+// --- مرحله اول: بارگذاری حیاتی (قبل از شروع بازی) ---
+function preloadEssentials() {
+    const promises = [];
+
+    // لود اسپرایت کاراکتر و پس‌زمینه
+    promises.push(loadImagePromise('cards/player_sprite.png'));
+    promises.push(loadImagePromise('cards/bg.jpg'));
+
+    // استخراج مسیر عکس‌های ۳ سوال اول
+    const essentialPaths = [];
+    initialQuizIndices.forEach(index => {
+        const q = quizData[index];
+        Object.values(q.images).forEach(path => essentialPaths.push(path));
+    });
+
+    // اضافه کردن عکس‌های ضروری به لیست پرامیس‌ها (جلوگیری از مسیرهای تکراری)
+    [...new Set(essentialPaths)].forEach(path => {
+        promises.push(loadImagePromise("cards/" + path, path));
+    });
+
+    // اگر پرامیس‌های فونت و صدا را هم ساختید، به این آرایه push کنید
+    return Promise.all(promises);
+}
+
+// --- مرحله دوم: بارگذاری تنبل (پس از شروع بازی) ---
+function lazyLoadRestOfImages() {
+    if (isLazyLoadingStarted) return;
+    isLazyLoadingStarted = true;
+
+    // استخراج تمام مسیرهای موجود در دیتابیس
+    const allPaths = [...new Set(quizData.flatMap(q => Object.values(q.images)))];
+    
+    // فیلتر کردن عکس‌هایی که در مرحله اول لود نشده‌اند
+    const remainingPaths = allPaths.filter(path => !imageAssets[path]);
+
+    console.log(`در حال بارگذاری بی‌سروصدای ${remainingPaths.length} عکس باقی‌مانده...`);
+
+    // لود کردن عکس‌ها در پس‌زمینه
+    remainingPaths.forEach(path => {
+        const img = new Image();
+        img.onload = () => { imageAssets[path] = img; };
+        // نکته: اگر عکسی لود نشود، از همان کادر سفید متنی که خودتان طراحی کردید استفاده می‌شود
+        img.src = "cards/" + path; 
+    });
+}
+
+// --- اجرای نهایی بازی ---
+console.log("در حال بارگذاری فایل‌های حیاتی...");
+
+preloadEssentials().then(() => {
+    console.log("فایل‌های حیاتی لود شدند! شروع بازی...");
+    
+const spinner = document.getElementById("loading-spinner");
+    if (spinner) spinner.style.display = "none";
+
+    // شروع بازی
+    reset();
+    gameLoop();
+
+    // یک ثانیه بعد از شروع بازی، بقیه عکس‌ها را در پس‌زمینه دانلود کن
+    // این کار باعث می‌شود تا بچه‌ها از گیت‌های اولیه عبور می‌کنند، کارت‌های گیاهانِ مراحل بعدی کاملاً آماده باشند
+    setTimeout(lazyLoadRestOfImages, 1000); 
+});
 </script>
 </body>
 </html>
