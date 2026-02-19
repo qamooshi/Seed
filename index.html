@@ -458,7 +458,7 @@ function triggerGameOver(reason) {
     if (reason === 'fall') {
         playSound('fall', 0.6); // پخش صدای سقوط
     } else {
-        playSound('hit', 0.5); // پخش صدای برخورد (مانع یا لیزر)
+        playSound('hit', 0.2); // پخش صدای برخورد (مانع یا لیزر)
     } 
 
  gameState = 'gameover';
@@ -1116,28 +1116,28 @@ ctx.fillRect(0, 0, canvas.width, barHeight);
 
 // ۲. استایل امتیاز (سمت چپ)
 ctx.textAlign = "center";
-ctx.textBaseline = "top";
+ctx.textBaseline = "middle";
 ctx.font = "24px IRZeytoon";
 ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
-ctx.fillText("امتیاز", 100, 30);
+ctx.fillText("امتیاز", 100, 50);
 
 ctx.font = "bold 120px IRZeytoon";
 ctx.fillStyle = "#fff";
 ctx.shadowBlur = 5; ctx.shadowColor = "white";
-ctx.fillText(score, 100, 40);
+ctx.fillText(score, 100, 130);
 ctx.shadowBlur = 0;
 
 // ۳. استایل بهترین رکورد (سمت راست)
 ctx.textAlign = "center";
-ctx.textBaseline = "top";
+ctx.textBaseline = "middle";
 ctx.font = "24px IRZeytoon";
 ctx.fillStyle = "rgba(255, 215, 0, 0.6)";
-ctx.fillText("بهترین", canvas.width - 100, 30);
+ctx.fillText("بهترین", canvas.width - 100, 50);
 
 ctx.font = "bold 80px IRZeytoon";
 ctx.fillStyle = "#ffd700";
-ctx.shadowBlur = 10; ctx.shadowColor = "#ffd700";
-ctx.fillText(highScore || 0, canvas.width - 100, 60);
+ctx.shadowBlur = 8; ctx.shadowColor = "#ffd700";
+ctx.fillText(highScore || 0, canvas.width - 100, 110);
 ctx.shadowBlur = 0;
 
 // ۴. باکس سوال جداگانه (شناور در مرکز)
