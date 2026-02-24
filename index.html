@@ -79,21 +79,93 @@
     100% { transform: translate(-50%, -50%) rotate(360deg); }
 }
 
+
+
+
+#leaderboard-list {
+    font-size: 26px;
+    margin-bottom: 20px;
+    max-height: 160px;
+    overflow-y: auto;
+    color: white;
+    text-align: left;
+    padding: 0 20px;
+}
+
+.lb-entry {
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px dashed rgba(0, 255, 255, 0.3);
+    padding: 8px 0;
+}
+
+
+#submit-score-btn {
+    font-family: 'IRZeytoon', sans-serif;
+    font-size: 22px;
+    padding: 10px 20px;
+    border-radius: 10px;
+    border: none;
+    background: #00ffff;
+    color: #000;
+    cursor: pointer;
+    font-weight: bold;
+    transition: 0.3s;
+}
+
+#submit-score-btn:hover { background: #fff; }
+
+/* تنظیمات صفحات ثبت‌نام و لیدربرد */
+#register-screen, #leaderboard-screen {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(10, 15, 15, 0.95); backdrop-filter: blur(10px);
+    z-index: 50; display: none; flex-direction: column;
+    align-items: center; justify-content: center; color: white;
+}
+
+.menu-title { font-size: 70px; color: #00ffff; margin-bottom: 20px; text-shadow: 0 0 20px cyan; }
+.menu-input { font-family: 'IRZeytoon', sans-serif; font-size: 40px; padding: 15px; border-radius: 15px; border: 3px solid cyan; background: #000; color: #fff; text-align: center; margin-bottom: 30px; width: 60%; }
+.menu-btn { font-family: 'IRZeytoon', sans-serif; font-size: 40px; padding: 15px 50px; border-radius: 20px; border: none; background: linear-gradient(135deg, #00ffff, #0088ff); color: #000; cursor: pointer; transition: 0.2s; box-shadow: 0 0 20px rgba(0,255,255,0.4); }
+.menu-btn:hover { transform: scale(1.1); color: white; }
+.close-btn { background: linear-gradient(135deg, #ff3333, #cc0000); color: white; margin-top: 30px; box-shadow: 0 0 20px rgba(255,0,0,0.4); }
+
+#leaderboard-list { font-size: 40px; line-height: 1.8; max-height: 400px; overflow-y: auto; width: 80%; text-align: left; }
+.lb-row { display: flex; justify-content: space-between; border-bottom: 2px dashed rgba(0,255,255,0.2); padding: 10px 0; }
+
 </style>
 </head>
 <body>
 <div id="loading-spinner"></div>
+
+
+<div id="register-screen">
+    <div class="menu-title">Enter Your Name</div>
+    <input type="text" id="reg-name" class="menu-input" placeholder="English Name Only" maxlength="12">
+    <button class="menu-btn" onclick="registerAndStart()">Start Game</button>
+</div>
+
+<div id="leaderboard-screen">
+    <div class="menu-title">🏆 Top Players 🏆</div>
+    <div id="leaderboard-list">Loading scores...</div>
+    <button class="menu-btn close-btn" onclick="closeLeaderboard()">Close</button>
+</div>
+
 <div id="ui-layer">
-    
     <div id="final-score" class="score-info">۰</div>
-    <div id="best-score" class="best-info">بهترین رکورد: ۰</div> 
+    <div id="best-score" class="best-info">Best: ۰</div> 
     <div id="edu-info"></div>
     
-    <button class="restart-btn" onclick="restartGame()">
-        <img src="cards/replay.png" style="width: 140px; height: 140px;"><path d="M8 5v14l11-7z" fill="white"/></img>
-    </button>
-    
+    <div style="display: flex; gap: 30px;">
+        <button class="restart-btn" onclick="restartGame()">
+            <img src="cards/replay.png" style="width: 140px; height: 140px;"><path d="M8 5v14l11-7z" fill="white"/></img>
+        </button>
+        <button class="restart-btn" style="background: linear-gradient(135deg, #f1c40f, #f39c12); box-shadow: 0 0 40px rgba(241, 196, 15, 0.5);" onclick="openLeaderboard()">
+            <span style="font-size: 80px;">🏆</span>
+        </button>
+    </div>
 </div>
+    
+
 <div id="start-guide" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; flex-direction: column; justify-content: flex-end; align-items: center; padding-bottom: 300px; z-index: 5; pointer-events: none; background: rgba(0,0,0,0.3); box-sizing: border-box;">
   
   <div style="color: cyan; font-family: IRZeytoon; font-size: 60px; font-weight: bold; margin-bottom: 200px; text-shadow: 0 0 0px cyan; animation: pulse 1.5s infinite;opacity: 0.7;">
@@ -238,6 +310,10 @@ function createGate(y, quizInput) {
 let bgY = 0; // موقعیت عمودی پس‌زمینه
 const bgImage = new Image();
 bgImage.src = 'cards/bg.jpg'; // عکس باید Seamless (بدون درز) باشد
+
+
+const dreamloPublicKey = "699d92fa8f40bb1a147eb793"; 
+const dreamloPrivateKey = "R0WSbv_zcke4czrmLlLE_gZW4JSqXTw0GJu2ZmoOsjIw";
 
 
 
@@ -472,11 +548,14 @@ function triggerGameOver(reason) {
   
   let lastGate = gates.find(g => g.y < player.y + 400) || gates[0];
   
-  setTimeout(() => {
-    // فقط عدد را می‌فرستیم چون استایل بزرگ است
+setTimeout(() => {
     document.getElementById("final-score").innerText = score; 
-    document.getElementById("best-score").innerText = "بهترین امتیاز: " + highScore;
+    document.getElementById("best-score").innerText = "Best: " + highScore;
     document.getElementById("edu-info").innerHTML = lastGate.quiz.desc;
+    
+    // ارسال رکورد در پس‌زمینه بدون اینکه کاربر متوجه شود
+    submitScoreSilently(score);
+    
     uiLayer.style.display = "flex";
   }, 500);
 }
@@ -1251,26 +1330,104 @@ function lazyLoadRestOfImages() {
         img.src = "cards/" + path; 
     });
 }
+// ==========================================
+// منطق لیدربرد و ثبت‌نام اتوماتیک
+// ==========================================
 
-// --- اجرای نهایی بازی ---
+function registerAndStart() {
+    const nameInput = document.getElementById("reg-name").value.trim().replace(/[^a-zA-Z0-9]/g, "");
+    if (!nameInput) {
+        alert("Please enter a valid English name!");
+        return;
+    }
+    // ذخیره نام برای همیشه در دستگاه کاربر
+    localStorage.setItem("englishGamePlayerName", nameInput);
+    document.getElementById("register-screen").style.display = "none";
+    startupGameSequence(); // شروع بازی
+}
+
+function submitScoreSilently(finalScore) {
+    let savedName = localStorage.getItem("englishGamePlayerName");
+    if (savedName && finalScore > 0) {
+        // ارسال بی‌سروصدا در پس‌زمینه
+        fetch(`https://www.dreamlo.com/lb/${dreamloPrivateKey}/add/${savedName}/${finalScore}`)
+            .catch(e => console.log("Leaderboard offline"));
+    }
+}
+
+async function openLeaderboard() {
+    const screen = document.getElementById("leaderboard-screen");
+    const list = document.getElementById("leaderboard-list");
+    screen.style.display = "flex";
+    list.innerHTML = "Loading scores...";
+    
+    try {
+        const response = await fetch(`https://www.dreamlo.com/lb/${dreamloPublicKey}/json`);
+        const data = await response.json();
+        let html = "";
+        const leaderboard = data.dreamlo.leaderboard;
+        
+        if (!leaderboard) {
+            html = "No scores yet. Be the first!";
+        } else {
+            let entries = leaderboard.entry;
+            if (!Array.isArray(entries)) entries = [entries]; 
+            
+            // گرفتن اسم خود بازیکن برای هایلایت کردن
+            const myName = localStorage.getItem("englishGamePlayerName");
+            
+            // نمایش ۱۰ نفر برتر
+            for (let i = 0; i < Math.min(entries.length, 10); i++) {
+                // اگر اسم بازیکن بود، رنگش زرد/طلایی می‌شود، وگرنه سفید است
+                const isMe = (entries[i].name === myName);
+                const nameColor = isMe ? "#ffd700" : "white";
+                const rankText = isMe ? `${i+1}. ${entries[i].name} (You)` : `${i+1}. ${entries[i].name}`;
+                
+                html += `<div class="lb-row" style="color: ${nameColor}; font-weight: ${isMe ? 'bold' : 'normal'};">
+                            <span>${rankText}</span> 
+                            <span style="color:cyan;">${entries[i].score}</span>
+                         </div>`;
+            }
+        }
+        list.innerHTML = html;
+    } catch (e) {
+        list.innerHTML = "Check your internet connection!";
+    }
+}
+
+function closeLeaderboard() {
+    document.getElementById("leaderboard-screen").style.display = "none";
+}
+
+// ==========================================
+// اجرای نهایی و هوشمند بازی
+// ==========================================
 console.log("در حال بارگذاری فایل‌های حیاتی...");
 
-preloadEssentials().then(() => {
-    console.log("فایل‌های حیاتی لود شدند! شروع بازی...");
-    
-const spinner = document.getElementById("loading-spinner");
-    if (spinner) spinner.style.display = "none";
-
-const guide = document.getElementById("start-guide");
+function startupGameSequence() {
+    const guide = document.getElementById("start-guide");
     if (guide) guide.style.display = "flex";
-
-    // شروع بازی
     reset();
     gameLoop();
-
-    // یک ثانیه بعد از شروع بازی، بقیه عکس‌ها را در پس‌زمینه دانلود کن
-    // این کار باعث می‌شود تا بچه‌ها از گیت‌های اولیه عبور می‌کنند، کارت‌های گیاهانِ مراحل بعدی کاملاً آماده باشند
     setTimeout(lazyLoadRestOfImages, 1000); 
+}
+
+// این بلاک جایگزین هر دو preloadEssentials قبلی می‌شود
+preloadEssentials().then(() => {
+    console.log("فایل‌های حیاتی لود شدند!");
+    
+    const spinner = document.getElementById("loading-spinner");
+    if (spinner) spinner.style.display = "none";
+
+    // چک می‌کنیم آیا کاربر قبلاً ثبت‌نام کرده است یا خیر؟
+    let savedName = localStorage.getItem("englishGamePlayerName");
+    if (!savedName) {
+        // اگر دفعه اول است، صفحه ثبت‌نام را نشان بده
+        document.getElementById("register-screen").style.display = "flex";
+    } else {
+        // اگر قبلاً اسم داده، مستقیم وارد بازی شو
+        startupGameSequence();
+    }
 });
 </script>
 </body>
