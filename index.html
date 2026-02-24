@@ -292,11 +292,11 @@ function spawnObstaclesBetween(startY, endY) {
     stormDuration--;
     
     // ۲. افزایش تراکم بر اساس تعداد بارش
-    let dynamicSpawnChance = Math.min(0.20, 0.04 * stormDifficulty);
+    let dynamicSpawnChance = Math.min(0.10, 0.02 * stormDifficulty);
 
     if (Math.random() < dynamicSpawnChance) {
       // ۳. افزایش سرعت سقوط بر اساس تعداد بارش
-      let dynamicVY = Math.min(25, 8 * stormDifficulty);
+      let dynamicVY = Math.min(15, 5 * stormDifficulty);
 
       fallingObjects.push({
         x: 40 + Math.random() * (canvas.width - 80), 
@@ -311,7 +311,7 @@ function spawnObstaclesBetween(startY, endY) {
     stormTimer--;
     if (stormTimer <= 0) {
         stormCount++; // <<< اضافه کردن به شمارنده در هر بار شروع طوفان جدید
-        stormDuration = 90; 
+        stormDuration = 180; 
         stormTimer = 1800; 
     }
   }
@@ -950,16 +950,12 @@ ctx.restore();
 
 
 if (player.alive) {
-    const bSize = 84;
-    let playerBlockIdx = Math.floor((totalDistance + (canvas.height - player.y)) / bSize);
-
-    // تولید همان اعداد رندوم برای چک کردن برخورد
-    let isSafeL = (Math.abs(Math.sin(playerBlockIdx * 12.9898)) % 1) > .7;
-    let isSafeR = (Math.abs(Math.sin(playerBlockIdx * 78.233)) % 1) > .7;
+    // آیا طوفان شروع شده یا هنوز سنگی در تصویر در حال سقوط است؟
+    const isStormActive = stormDuration > 0 || fallingObjects.length > 0;
 
     // برخورد چپ
     if (player.x - player.radius < wallWidth) {
-        if (isSafeL) {
+        if (!isStormActive) {
             player.x = wallWidth + player.radius;
             player.vx = 10;
         } else {
@@ -968,18 +964,20 @@ if (player.alive) {
     }
     // برخورد راست
     else if (player.x + player.radius > canvas.width - wallWidth) {
-        if (isSafeR) {
+        if (!isStormActive) {
             player.x = canvas.width - wallWidth - player.radius;
             player.vx = -10;
         } else {
-            triggerGameOver();
+            triggerGameOver('hit');
         }
     }
 
     if (player.x < 0 || player.x > canvas.width || (player.y - 25 > canvas.height && !player.onGround)) {
         triggerGameOver('fall');
     }
-}  // --- رسم اسپرایت واکنشی (بدون انیمیشن خودکار) ---
+}
+
+  // --- رسم اسپرایت واکنشی (بدون انیمیشن خودکار) ---
  // --- رسم اسپرایت واکنشی ---
    if (player.alive) {
     ctx.save();
@@ -1041,56 +1039,48 @@ if (player.alive) {
   // ایجاد حرکت بر اساس موقعیت عمودی گیت‌ها برای حس واقعی جابجایی
   let scrollOffset = (gates.length > 0) ? (gates[0].y % blockSize) : 0;
 
- // --- بخش رسم دیوارها با ظاهر متفاوت ---
- // --- ۱. طراحی و رسم دیواره‌های هوشمند ---
-// --- رسم دیواره‌های کاملاً رندوم ---
+// --- رسم دیواره‌های هوشمند (حساس به طوفان و هشدار) ---
+// --- رسم دیواره‌های هوشمند (حساس به طوفان و هشدار) ---
 const bSize = 84; 
 let wallScroll = totalDistance % bSize;
+
+// بررسی وضعیت بازی
+const isStormActive = stormDuration > 0 || fallingObjects.length > 0; 
+const isWarning = stormTimer > 0 && stormTimer <= 180;
+// ساخت رنگ چشمک‌زن (هر ۱۰ فریم بین قرمز و آبی تغییر می‌کند)
+const flashColor = (stormTimer % 20 < 10) ? "#ff3333" : "cyan";
 
 ctx.save();
 for (let y = -bSize; y < canvas.height + bSize; y += bSize) {
     let drawY = y + wallScroll;
-    let blockIdx = Math.floor((totalDistance + (canvas.height - drawY)) / bSize);
 
-    // تولید یک عدد "شبه تصادفی" ثابت برای هر ایندکس
-    // این عدد بین 0 و 1 است و برای هر blockIdx همیشه ثابت می‌ماند
-    let pseudoRandomL = Math.abs(Math.sin(blockIdx * 12.9898)) % 1;
-    let pseudoRandomR = Math.abs(Math.sin(blockIdx * 78.233)) % 1;
-
-    // --- رسم دیوار چپ (شروع رندوم) ---
-    if (pseudoRandomL > .7) { // ۵۰٪ شانس امن بودن
-        ctx.fillStyle = "#1a1a1a"; // امن
-        ctx.fillRect(0, drawY, wallWidth, bSize - 4);
-        ctx.fillStyle = "cyan";
-        ctx.fillRect(wallWidth-5, drawY, 5, bSize-4);
+    // --- رسم دیوار چپ ---
+    ctx.fillStyle = "#1a1a1a"; 
+    ctx.fillRect(0, drawY, wallWidth, bSize - 4);
+    
+    if (isStormActive) {
+        ctx.fillStyle = "#ff3333"; // طوفان: قرمز ثابت و کشنده
+    } else if (isWarning) {
+        ctx.fillStyle = flashColor; // هشدار: چشمک‌زن (هنوز امن)
     } else {
-        ctx.fillStyle = "#1a1a1a"; // کشنده
-        ctx.fillRect(0, drawY, wallWidth, bSize - 4);
-        ctx.fillStyle = "#ff3333";
-        //ctx.shadowBlur = 15;
-// ctx.shadowColor = "red";
-        ctx.fillRect(wallWidth - 6, drawY + 5, 4, bSize - 14);
-        ctx.shadowBlur = 0;
+        ctx.fillStyle = "cyan"; // عادی: آبی ثابت و امن
     }
+    ctx.fillRect(wallWidth - 5, drawY, 5, bSize - 4);
 
-    // --- رسم دیوار راست (رندوم مستقل) ---
-    if (pseudoRandomR > .7) {
-        ctx.fillStyle = "#1a1a1a";
-        ctx.fillRect(canvas.width - wallWidth, drawY, wallWidth, bSize - 4);
-        ctx.fillStyle = "cyan";
-        ctx.fillRect(canvas.width - wallWidth, drawY, 5, bSize-4);
+    // --- رسم دیوار راست ---
+    ctx.fillStyle = "#1a1a1a";
+    ctx.fillRect(canvas.width - wallWidth, drawY, wallWidth, bSize - 4);
+    
+    if (isStormActive) {
+        ctx.fillStyle = "#ff3333"; // طوفان: قرمز ثابت
+    } else if (isWarning) {
+        ctx.fillStyle = flashColor; // هشدار: چشمک‌زن
     } else {
-        ctx.fillStyle = "#1a1a1a";
-        ctx.fillRect(canvas.width - wallWidth, drawY, wallWidth, bSize - 4);
-        ctx.fillStyle = "#ff3333";
-        //ctx.shadowBlur = 15;
-// ctx.shadowColor = "red";
-        ctx.fillRect(canvas.width - wallWidth + 2, drawY + 5, 4, bSize - 14);
-        ctx.shadowBlur = 0;
+        ctx.fillStyle = "cyan"; // عادی: آبی ثابت
     }
+    ctx.fillRect(canvas.width - wallWidth, drawY, 5, bSize - 4);
 }
 ctx.restore();
-
 
   if (flashAlpha > 0) {
     ctx.fillStyle = `rgba(255, 0, 0, ${flashAlpha})`;
